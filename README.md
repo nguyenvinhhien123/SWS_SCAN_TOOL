@@ -6,7 +6,7 @@
 
 ```bash
 git clone https://github.com/nguyenvinhhien123/SWS_SCAN_TOOL.git
-cd /SWS_SCAN_TOOL
+cd SWS_SCAN_TOOL/
 ```
 ### *INSTALL setup.sh*
 
