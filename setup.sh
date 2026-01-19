@@ -1,52 +1,36 @@
 #!/bin/bash
 
-# Hiển thị tiêu đề
-echo "====================================================="
-echo "   SWS SCAN TOOL SETUP     "
-echo "====================================================="
+echo "[*] Đang cập nhật hệ thống..."
+sudo apt-get update -y
 
-# 1. Cập nhật Repository và sửa lỗi kết nối
-sudo sed -i 's/vn.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/sources.list
-sudo apt update --fix-missing
+echo "[*] Cài đặt các công cụ cơ bản (Nmap, Nikto, Python3)..."
+sudo apt-get install -y nmap nikto python3 python3-pip git
 
-# 2. Cài đặt các công cụ hệ thống có sẵn
-echo "[+] Đang cài đặt Nmap, Nikto, Wapiti, Golang, Docker..."
-sudo apt --fix-broken install -y
-sudo apt install -y nmap nikto wapiti golang-go docker.io python3-pip git curl
+echo "[*] Cài đặt Golang (cần thiết cho các công cụ ProjectDiscovery)..."
+sudo apt-get install -y golang
 
-# 3. Thiết lập Docker
-sudo systemctl start docker
-sudo systemctl enable docker
-
-# 4. Cài đặt Katana (ProjectDiscovery) - Xử lý lỗi GOPATH
-echo "[+] Đang cài đặt Katana..."
-export GO111MODULE=on
-export GOPATH=$HOME/go
-export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
-
+echo "[*] Cài đặt Katana và Nuclei từ ProjectDiscovery..."
 go install github.com/projectdiscovery/katana/cmd/katana@latest
+go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
 
-# Kiểm tra và copy Katana vào hệ thống
-if [ -f "$HOME/go/bin/katana" ]; then
-    sudo cp $HOME/go/bin/katana /usr/local/bin/
-else
-    # Thử cách cài cũ nếu go version thấp
-    go get -u github.com/projectdiscovery/katana/cmd/katana
-    sudo cp ~/go/bin/katana /usr/local/bin/ 2>/dev/null
-fi
+# Đưa tool Go vào đường dẫn hệ thống
+sudo cp ~/go/bin/* /usr/local/bin/
 
-# 5. Cài đặt XSStrike (Tải về cùng thư mục với tool)
-echo "[+] Đang kiểm tra XSStrike..."
+echo "[*] Đang kiểm tra thư mục apps..."
+mkdir -p apps
+cd apps
+
 if [ ! -d "XSStrike" ]; then
+    echo "[*] Đang tải XSStrike..."
     git clone https://github.com/s0md3v/XSStrike.git
-    cd XSStrike && pip3 install -r requirements.txt
+    cd XSStrike
+    pip3 install -r requirements.txt
     cd ..
 fi
 
-# 6. Cấp quyền thực thi cho tool
-chmod +x pentestsws.py
+echo "[*] Cài đặt thư viện Python cho tool chính..."
+cd ..
+pip3 install -r requirements.txt
 
-echo "====================================================="
-echo "        CÀI ĐẶT HOÀN TẤT! BẮT ĐẦU QUÉT"
-echo "  Sử dụng: sudo python3 pentestsws.py"
-echo "====================================================="
+echo "[✔] CÀI ĐẶT HOÀN TẤT!"
+echo "[!] Lưu ý: Hãy đảm bảo XSSTRIKE_PATH trong file .py khớp với: $PWD/apps/XSStrike/xsstrike.py"
