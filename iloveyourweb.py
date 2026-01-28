@@ -212,7 +212,7 @@ def ai_log_analysis_prompt_generator():
     prompt = _build_log_analysis_prompt(log_for_prompt, log_file)
 
     # Always export the prompt for traceability/reuse.
-    out_name = f"prompt_{os.path.basename(log_file)}.txt"
+    out_name = f"scan_ai_prompt_{os.path.basename(log_file).replace('.log','')}.log"
     try:
         with open(out_name, "w") as f:
             f.write(prompt)
