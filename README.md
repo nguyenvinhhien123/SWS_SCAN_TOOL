@@ -1,15 +1,17 @@
 
 # SWS_SCAN_TOOL
 
-<img width="683" height="392" alt="image" src="https://github.com/user-attachments/assets/0f80fa17-bd30-4e9a-9623-00b83cbecff0" />
+<img width="599" height="372" alt="image" src="https://github.com/user-attachments/assets/23cf3860-c7de-470a-ae31-8b611adab4df" />
+
 
 ## WARNING: LEGAL DISCLAIMER ⚠️
 
 >This tool is intended for educational and ethical use only. The author is not liable for any illegal use or misuse of this tool. Users are solely responsible for their actions and must ensure they have explicit permission to scan the target systems.
 
-### UPDATE PROXY 
+### UPDATE
 
 *Apply your proxy list (option 10) to domestic domains to ensure stable and effective scanning.*
+*Add AI to analyse logs.*
 
 
 
