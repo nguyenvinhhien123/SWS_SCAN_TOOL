@@ -31,4 +31,4 @@ chmod +x setup.sh
 ### *RUN (run with sudo for best scan with nmap)*
 
 ```bash
-sudo python3 pentestsws.py
+sudo python3 iloveyourweb.py
