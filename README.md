@@ -28,7 +28,13 @@ cd SWS_SCAN_TOOL/
 chmod +x setup.sh
 ./setup.sh
 ```
+### *EXPORT AI API KEY*
+
+```bash
+export OPENAI_API_KEY="YOUR_API_KEY"
+python3 pentestsws.py
+```
 ### *RUN (run with sudo for best scan with nmap)*
 
 ```bash
-sudo python3 iloveyourweb.py
+python3 iloveyourweb.py
