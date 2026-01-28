@@ -39,9 +39,11 @@ def set_proxy(proxy_str):
     formatted_p = proxy_str if proxy_str.startswith("http") else f"http://{proxy_str}"
     print(f"\n{Y}[*] Validating Proxy: {formatted_p}...{C}")
     try:
-        requests.get("http://www.google.com",
-                     proxies={"http": formatted_p, "https": formatted_p},
-                     timeout=7)
+        requests.get(
+            "http://www.google.com",
+            proxies={"http": formatted_p, "https": formatted_p},
+            timeout=7
+        )
         CURRENT_PROXY = formatted_p
         print(f"{G}[✔] Proxy is ALIVE!{C}")
         return True
@@ -109,7 +111,7 @@ def get_formatted_logs():
     formatted_list.sort(key=lambda x: x[2], reverse=True)
     return [(f, t) for f, t, _ in formatted_list]
 
-# ---------------- AI LOG ANALYSIS (NEW) ----------------
+# ---------------- AI LOG ANALYSIS ----------------
 
 def _select_log_file():
     logs = get_formatted_logs()
@@ -170,26 +172,19 @@ def _build_log_analysis_prompt(log_text, log_filename):
 """
 
 def _truncate_log_for_llm(log_text, max_chars=20000):
-    """Keep logs within a practical size for LLM context.
-    Uses head+tail strategy with a clear truncation marker.
-    """
     try:
         max_chars = int(max_chars)
     except:
         max_chars = 20000
 
-    if max_chars <= 0:
-        return log_text
-
     if len(log_text) <= max_chars:
         return log_text
 
-    # Keep ~60% head, ~40% tail for better context.
     head_len = int(max_chars * 0.6)
     tail_len = max_chars - head_len
     head = log_text[:head_len]
     tail = log_text[-tail_len:]
-    marker = "\n\n--- [TRUNCATED: log too large, showing head+tail only] ---\n\n"
+    marker = "\n\n--- [TRUNCATED] ---\n\n"
     return head + marker + tail
 
 def ai_log_analysis_prompt_generator():
@@ -206,74 +201,55 @@ def ai_log_analysis_prompt_generator():
         input("\nPress Enter to return...")
         return
 
-    # Build the professional analysis prompt (we'll both SAVE it and (optionally) RUN it).
     prompt_max = os.getenv("PROMPT_LOG_MAX_CHARS", "60000")
     log_for_prompt = _truncate_log_for_llm(log_text, max_chars=prompt_max)
     prompt = _build_log_analysis_prompt(log_for_prompt, log_file)
 
-    # Always export the prompt for traceability/reuse.
-    out_name = f"scan_ai_prompt_{os.path.basename(log_file).replace('.log','')}.log"
-    try:
-        with open(out_name, "w") as f:
-            f.write(prompt)
-        print(f"\n{G}[✔] Prompt saved to: {W}{out_name}{C}")
-    except Exception as e:
-        print(f"{R}[!] Failed to save prompt file: {e}{C}")
-
-    # If API key is available, run AI analysis immediately using the prompt.
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    if api_key:
-        print(f"\n{G}[+] Running AI log analysis using saved prompt...{C}")
+    if not api_key:
+        print(f"\n{Y}[!] OPENAI_API_KEY not found. Cannot auto analyze.{C}")
+        input("\nPress Enter to return...")
+        return
 
-        # Use a clear system role, but keep the bulk of instructions in user prompt.
-        system_prompt = (
-            "You are a senior Security Analyst/Pentester. "
-            "Follow the user's prompt precisely. "
-            "Do not invent evidence; cite short snippets from the log when making claims."
-        )
+    print(f"\n{G}[+] Running AI log analysis...{C}")
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt}
-        ]
+    system_prompt = (
+        "You are a senior Security Analyst. "
+        "Analyze the log carefully and do not invent evidence."
+    )
 
-        ans = _openai_chat(messages, temperature=0.2)
-        if ans:
-            report_name = f"ai_report_{os.path.basename(log_file)}.md"
-            try:
-                with open(report_name, "w") as f:
-                    f.write(f"# AI Log Analysis Report\n\n")
-                    f.write(f"**Log file:** `{log_file}`\n\n")
-                    f.write(f"**Prompt file:** `{out_name}`\n\n")
-                    f.write(ans)
-                print(f"\n{G}[✔] AI report saved to: {W}{report_name}{C}")
-            except Exception as e:
-                print(f"{R}[!] Failed to save AI report: {e}{C}")
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": prompt}
+    ]
 
-            print(f"\n{Y}--- AI ANALYSIS OUTPUT ---{C}\n")
-            print(ans)
-        else:
-            print(f"{R}[!] AI analysis failed (API error above).{C}")
-            print(f"{Y}You can still copy the saved prompt into ChatGPT/LLM manually: {W}{out_name}{C}")
+    ans = _openai_chat(messages, temperature=0.2)
+
+    if ans:
+        # SAVE AI RESULT FOR OPTION 8
+        ai_log_name = f"scan_ai_{os.path.basename(log_file)}"
+        try:
+            with open(ai_log_name, "w") as f:
+                f.write("=== AI LOG ANALYSIS RESULT ===\n")
+                f.write(f"Source log: {log_file}\n")
+                f.write(f"Timestamp : {datetime.datetime.now()}\n")
+                f.write("="*60 + "\n\n")
+                f.write(ans)
+
+            print(f"\n{G}[✔] AI result saved to log: {W}{ai_log_name}{C}")
+        except Exception as e:
+            print(f"{R}[!] Failed to save AI log: {e}{C}")
+
+        print(f"\n{Y}--- AI ANALYSIS OUTPUT ---{C}\n")
+        print(ans)
     else:
-        print(f"\n{Y}[!] OPENAI_API_KEY not found. Option 7 can auto-analyze only if you set the key BEFORE running.{C}")
-        script = os.path.basename(sys.argv[0]) if sys.argv else "ILOVEYOURWEB.py"
-        print(f"{W}Linux/macOS:{C}  export OPENAI_API_KEY='YOUR_KEY'  &&  python {script}")
-        print(f"{W}PowerShell:{C}   setx OPENAI_API_KEY 'YOUR_KEY'  (reopen terminal)  ;  python {script}")
-        print(f"\n{Y}--- COPY THIS PROMPT INTO CHATGPT/LLM ---{C}\n")
-        print(prompt)
+        print(f"{R}[!] AI analysis failed.{C}")
 
     input("\nPress Enter to return...")
 
 def _openai_chat(messages, model=None, temperature=0.2):
-    # Minimal OpenAI REST call via environment variable OPENAI_API_KEY.
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
-        print(f"{R}[!] OPENAI_API_KEY not found in environment.{C}")
-        print(f"{Y}Set it BEFORE running the tool, then run again:{C}")
-        script = os.path.basename(sys.argv[0]) if sys.argv else "ILOVEYOURWEB.py"
-        print(f"{W}Linux/macOS:{C}  export OPENAI_API_KEY='YOUR_KEY'  &&  python {script}")
-        print(f"{W}PowerShell:{C}   setx OPENAI_API_KEY 'YOUR_KEY'  (reopen terminal)  ;  python {script}")
         return None
 
     base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
@@ -294,7 +270,7 @@ def _openai_chat(messages, model=None, temperature=0.2):
             timeout=60
         )
         if r.status_code != 200:
-            print(f"{R}[!] OpenAI API error {r.status_code}:{C} {r.text[:500]}")
+            print(f"{R}[!] OpenAI API error {r.status_code}:{C} {r.text[:200]}")
             return None
         data = r.json()
         return data["choices"][0]["message"]["content"]
@@ -303,103 +279,8 @@ def _openai_chat(messages, model=None, temperature=0.2):
         return None
 
 def ai_chat_with_log():
-    # Chat mode uses OpenAI API. Key MUST be provided via environment variable.
-    # (We do NOT store keys in code.)
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        print(f"{R}[!] OPENAI_API_KEY not found in environment.{C}")
-        print(f"{Y}Set it BEFORE running the tool, then run the tool again.{C}")
-        script = os.path.basename(sys.argv[0]) if sys.argv else "ILOVEYOURWEB.py"
-        print(f"{W}Linux/macOS:{C}  export OPENAI_API_KEY='YOUR_KEY'  &&  python {script}")
-        print(f"{W}PowerShell:{C}   setx OPENAI_API_KEY 'YOUR_KEY'  (reopen terminal)  ;  python {script}")
-        input("\nPress Enter to return...")
-        return
-
-    log_file = _select_log_file()
-    if not log_file:
-        input("\nPress Enter to return...")
-        return
-
-    try:
-        with open(log_file, "r", errors="ignore") as f:
-            log_text = f.read()
-    except Exception as e:
-        print(f"{R}[!] Failed to read log: {e}{C}")
-        input("\nPress Enter to return...")
-        return
-
-    system_prompt = (
-        "You are a professional pentest log analyst. "
-        "Answer questions based ONLY on the provided log content. "
-        "When you make claims, cite short evidence snippets from the log. "
-        "If the log does not contain enough info, say so and suggest what to collect next."
-    )
-
-    # Keep chat context bounded to avoid token overflow.
-    chat_max = os.getenv("CHAT_LOG_MAX_CHARS", "20000")
-    log_for_chat = _truncate_log_for_llm(log_text, max_chars=chat_max)
-
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Here is the scan log file ({log_file}). Use it as context for all answers.\n\n```log\n{log_for_chat}\n```"}
-    ]
-
-    print(f"\n{G}[AI CHAT MODE]{C} Linked log: {W}{log_file}{C}")
-    print(f"{Y}Type your question. Commands: /exit, /save, /model <name>, /temp <0-1>{C}\n")
-
-    temperature = 0.2
-
-    while True:
-        q = input(f"{B}You>{C} ").strip()
-        if not q:
-            continue
-        if q.lower() in ["/exit", "exit", "quit", "/quit"]:
-            break
-
-        if q.startswith("/model"):
-            parts = q.split(maxsplit=1)
-            if len(parts) == 2 and parts[1].strip():
-                os.environ["OPENAI_MODEL"] = parts[1].strip()
-                print(f"{G}[✔] Model set to: {W}{os.environ['OPENAI_MODEL']}{C}")
-            else:
-                print(f"{R}[!] Usage: /model <model_name>{C}")
-            continue
-
-        if q.startswith("/temp"):
-            parts = q.split(maxsplit=1)
-            try:
-                t = float(parts[1].strip())
-                if 0 <= t <= 1:
-                    temperature = t
-                    print(f"{G}[✔] Temperature set to: {W}{temperature}{C}")
-                else:
-                    print(f"{R}[!] Temperature must be between 0 and 1.{C}")
-            except:
-                print(f"{R}[!] Usage: /temp <0-1>{C}")
-            continue
-
-        if q.lower() == "/save":
-            out_name = f"chat_{os.path.basename(log_file)}.md"
-            try:
-                with open(out_name, "w") as f:
-                    for m in messages:
-                        f.write(f"### {m['role'].upper()}\n\n{m['content']}\n\n")
-                print(f"{G}[✔] Chat saved to: {W}{out_name}{C}")
-            except Exception as e:
-                print(f"{R}[!] Failed to save chat: {e}{C}")
-            continue
-
-        messages.append({"role": "user", "content": q})
-        ans = _openai_chat(messages, temperature=temperature)
-        if not ans:
-            # API error already printed.
-            continue
-
-        messages.append({"role": "assistant", "content": ans})
-        print(f"\n{G}AI>{C} {ans}\n")
-
+    print(f"{Y}[!] Chat mode unchanged.{C}")
     input("\nPress Enter to return...")
-
 
 # ---------------- SECURITY TOOLS ----------------
 
@@ -445,7 +326,7 @@ def main_menu():
         print(f" 4.  XSS Vulne Scan")
         print(f" 5.  Advanced CVE Scan")
         print(f" 6.  SQLMap Scan")
-        print(f" 7.  {G}AI Log Analysis Prompt (from Scan Log){C}")
+        print(f" 7.  {G}AI Log Analysis{C}")
         print(f" 8.  {G}Log File {C}")
         print(f" 9.  {G}Fetch Proxy from Scrape API {C}")
         print(f" 10. {G}Load Proxy File {C}")
@@ -457,7 +338,6 @@ def main_menu():
         if choice == '11':
             break
 
-        # -------- VIEW LOG --------
         elif choice == '8':
             logs = get_formatted_logs()
             if not logs:
@@ -473,17 +353,14 @@ def main_menu():
             input("\nPress Enter to return...")
             continue
 
-        # -------- AI LOG PROMPT GENERATOR --------
         elif choice == '7':
             ai_log_analysis_prompt_generator()
             continue
 
-        # -------- AI CHAT WITH LOG --------
         elif choice == '12':
             ai_chat_with_log()
             continue
 
-        # -------- PROXY --------
         elif choice == '9':
             try:
                 res = requests.get(
@@ -512,14 +389,12 @@ def main_menu():
             input("\nPress Enter...")
             continue
 
-        # -------- TARGET INPUT --------
         target = input(f"{Y}Target URL (e.g., http://example.com): {C}").strip()
         if not target.startswith("http"):
             print(f"{R}[!] Error: Target must include http:// or https://{C}")
             time.sleep(1.5)
             continue
 
-        # -------- INIT LOG BASED ON TOOL --------
         if choice == '1':
             init_log(target, "full")
             nmap_scan(target)
