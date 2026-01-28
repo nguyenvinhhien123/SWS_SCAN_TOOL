@@ -11,7 +11,8 @@
 ### UPDATE
 
 *Apply your proxy list (option 10) to domestic domains to ensure stable and effective scanning.*
-*Add AI to analyse logs.*
+
+*Add AI to analyse logs (option 7 and 12), export your own API key to use.*
 
 
 
