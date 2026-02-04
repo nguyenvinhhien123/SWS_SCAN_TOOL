@@ -282,7 +282,7 @@ def ai_chat_with_log():
     print(f"{Y}[!] Chat mode unchanged.{C}")
     input("\nPress Enter to return...")
 
-# ---------------- SECURITY TOOLS ----------------
+# ---------------- TOOLS ----------------
 
 def nmap_scan(target):
     domain = target.replace("http://", "").replace("https://", "").split('/')[0].split('#')[0]
